@@ -10,7 +10,7 @@ const ai = new GoogleGenAI({
 async function test(){
     const diff = execSync(
   "git diff --cached",
-  { encoding: "utf8" }
+  { encoding: "utf8" ,maxBuffer: 10 * 1024 * 1024 }
 );
 const prompt = `
 You are an expert software engineer.
