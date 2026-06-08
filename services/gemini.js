@@ -6,7 +6,7 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
 });
 
-async function generateCommitMessage(diff) {
+async function generateCommitMessage(diff, branch) {
   if (!diff || !diff.trim()) {
     throw new Error(
       "No staged changes found. Stage your files before generating a commit message."
@@ -14,15 +14,20 @@ async function generateCommitMessage(diff) {
   }
 
   const prompt = `
-You are an expert software engineer.
+You are a senior software engineer.
 
-Generate ONE conventional commit message.
+Current Branch:
+${branch}
+
+Analyze the git diff.
+
+Generate ONE Conventional Commit message.
 
 Rules:
-- Return ONLY the commit message
-- No explanation
-- No markdown
-- No options
+- Return only the commit message.
+- No explanations.
+- No markdown.
+- Max 72 chars.
 
 Git Diff:
 

@@ -1,11 +1,19 @@
 const { execFileSync } = require("child_process");
 const askQuestion = require("../utils/askQuestion");
-const { getStagedDiff } = require("../services/history");
+const { getCurrentBranch, getStagedDiff } = require("../services/git");
 const { generateCommitMessage } = require("../services/gemini");
 
 async function handleCommit() {
   const diff = getStagedDiff();
-  const commitMessage = await generateCommitMessage(diff);
+  if (!diff) {
+    console.log(
+      "\nYou have not staged any changes yet. Use `git add <files>` first, then run `gitmind commit`."
+    );
+    return;
+  }
+
+  const branch = getCurrentBranch();
+  const commitMessage = await generateCommitMessage(diff, branch);
 
   console.log("\nSuggested Commit:");
   console.log(commitMessage);

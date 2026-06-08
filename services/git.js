@@ -6,15 +6,18 @@ function getStagedDiff() {
     maxBuffer: 10 * 1024 * 1024,
   });
 
-  if (!diff.trim()) {
-    throw new Error(
-      "No staged changes found. Stage your files before running gitmind commit."
-    );
-  }
+  return diff.trim() ? diff : null;
+}
 
-  return diff;
+function getCurrentBranch() {
+  const branch = execSync("git branch --show-current", {
+    encoding: "utf8",
+  }).trim();
+
+  return branch || "unknown";
 }
 
 module.exports = {
+  getCurrentBranch,
   getStagedDiff,
 };
