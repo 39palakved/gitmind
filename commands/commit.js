@@ -1,41 +1,11 @@
-require("dotenv").config();
-
-const readline = require("readline");
-const { GoogleGenAI } = require("@google/genai");
-const { execFileSync, execSync } = require("child_process");
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+const { execFileSync } = require("child_process");
+const askQuestion = require("../utils/askQuestion");
+const { getStagedDiff } = require("../services/history");
+const { generateCommitMessage } = require("../services/gemini");
 
 async function handleCommit() {
-  const diff = execSync("git diff --cached", {
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024,
-  });
-
-  const prompt = `
-You are an expert software engineer.
-
-Generate ONE conventional commit message.
-
-Rules:
-- Return ONLY the commit message
-- No explanation
-- No markdown
-- No options
-
-Git Diff:
-
-${diff}
-`;
-
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-  });
-
-  const commitMessage = response.text.trim();
+  const diff = getStagedDiff();
+  const commitMessage = await generateCommitMessage(diff);
 
   console.log("\nSuggested Commit:");
   console.log(commitMessage);
@@ -50,20 +20,6 @@ ${diff}
   } else {
     console.log("\nCommit cancelled.");
   }
-}
-
-function askQuestion(question) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
-  return new Promise((resolve) => {
-    rl.question(question, (answer) => {
-      rl.close();
-      resolve(answer);
-    });
-  });
 }
 
 module.exports = handleCommit;
