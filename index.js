@@ -16,7 +16,7 @@ async function main() {
     await handleConfig();
     return;
   }
-
+//run on commit 
   if (command === "commit") {
     const handleCommit = require("./commands/commit");
 
