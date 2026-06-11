@@ -1,14 +1,29 @@
 const { execFileSync } = require("child_process");
 const askQuestion = require("../utils/askQuestion");
-const { getCurrentBranch, getStagedDiff } = require("../services/git");
+const {
+  getCurrentBranch,
+  getRepositoryStatus,
+  getStagedDiff,
+} = require("../services/git");
 const { generateCommitMessage } = require("../services/gemini");
 
 async function handleCommit() {
   const diff = getStagedDiff();
   if (!diff) {
-    console.log(
-      "\nYou have not staged any changes yet. Use `git add <files>` first, then run `gitmind commit`."
-    );
+    const status = getRepositoryStatus();
+
+    if (!status.hasAnyChanges) {
+      console.log("\nNo changes detected in this repository.");
+    } else if (status.hasUnstagedChanges) {
+      console.log(
+        "\nYou have unstaged changes. Run `git add` first, then `gitmind commit`."
+      );
+    } else {
+      console.log(
+        "\nNo staged changes found. Stage files with `git add` first, then run `gitmind commit`."
+      );
+    }
+
     return;
   }
 

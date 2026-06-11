@@ -17,7 +17,31 @@ function getCurrentBranch() {
   return branch || "unknown";
 }
 
+function getRepositoryStatus() {
+  const statusOutput = execSync("git status --porcelain=v1", {
+    encoding: "utf8",
+  });
+
+  const entries = statusOutput
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => ({
+      code: line.slice(0, 2),
+      path: line.slice(3).trim(),
+      raw: line,
+    }));
+
+  return {
+    entries,
+    hasAnyChanges: entries.length > 0,
+    hasUnstagedChanges: entries.some((entry) => {
+      return entry.code === "??" || entry.code[1] !== " ";
+    }),
+  };
+}
+
 module.exports = {
   getCurrentBranch,
+  getRepositoryStatus,
   getStagedDiff,
 };
