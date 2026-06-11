@@ -1,9 +1,11 @@
 const { execFileSync } = require("child_process");
-const askQuestion = require("../utils/askQuestion");
+const askYesNo = require("../utils/askYesNo");
 const {
   getCurrentBranch,
   getRepositoryStatus,
   getStagedDiff,
+  getPushRemoteName,
+  pushCurrentBranch,
 } = require("../services/git");
 const { generateCommitMessage } = require("../services/gemini");
 
@@ -33,13 +35,43 @@ async function handleCommit() {
   console.log("\nSuggested Commit:");
   console.log(commitMessage);
 
-  const answer = await askQuestion("\nAccept? (Y/N): ");
+  const shouldCommit = await askYesNo("\nAccept? (Y/N): ");
 
-  if (answer.toLowerCase() === "y") {
+  if (shouldCommit) {
     execFileSync("git", ["commit", "-m", commitMessage], {
       stdio: "inherit",
     });
     console.log("\nCommit created successfully!");
+
+    const remoteName = getPushRemoteName();
+
+    if (!remoteName) {
+      console.log(
+        "No git remote is configured, so GitMind could not push this commit to GitHub."
+      );
+      return;
+    }
+
+    const shouldPush = await askYesNo(
+      `Push this commit to ${remoteName} now? (Y/N): `
+    );
+
+    if (shouldPush) {
+      try {
+        const pushed = pushCurrentBranch();
+        console.log(
+          `\nPushed to ${pushed.remote || remoteName} successfully!`
+        );
+      } catch (error) {
+        console.log(
+          `\nCommit was created locally, but push failed: ${
+            error.message || error
+          }`
+        );
+      }
+    } else {
+      console.log("\nPush cancelled.");
+    }
   } else {
     console.log("\nCommit cancelled.");
   }

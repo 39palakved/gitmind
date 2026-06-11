@@ -14,6 +14,6 @@
   "type": "commonjs",
   "dependencies": {
     "@google/genai": "^2.8.0",
-    "dotenv": "^17.4.2"
+    "keytar": "^7.9.0"
   }
 }

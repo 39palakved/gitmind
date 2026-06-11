@@ -3,6 +3,20 @@
 const command = process.argv[2];
 
 async function main() {
+  if (command === "help" || command === "-h" || command === "--help") {
+    const handleHelp = require("./commands/help");
+
+    handleHelp(process.argv[3]);
+    return;
+  }
+
+  if (command === "config") {
+    const handleConfig = require("./commands/config");
+
+    await handleConfig();
+    return;
+  }
+
   if (command === "commit") {
     const handleCommit = require("./commands/commit");
 
@@ -10,16 +24,18 @@ async function main() {
     return;
   }
 
-  if (!command || command === "help") {
-    console.log("Available Commands:");
-    console.log("gitmind commit");
+  if (!command) {
+    const handleHelp = require("./commands/help");
+
+    handleHelp();
     return;
   }
 
   console.log(`Unknown command: ${command}`);
+  console.log("Run `gitmind help` to see available commands.");
 }
 
 main().catch((error) => {
-  console.error(error);
+  console.error(`\n${error.message || error}`);
   process.exitCode = 1;
 });

@@ -1,10 +1,19 @@
-require("dotenv").config();
-
 const { GoogleGenAI } = require("@google/genai");
+const { DEFAULT_MODEL, getConfiguredGeminiApiKey } = require("./config");
 
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-});
+async function createAiClient() {
+  const apiKey = await getConfiguredGeminiApiKey();
+
+  if (!apiKey) {
+    throw new Error(
+      "GitMind is not configured yet. Run `gitmind config` first to save your Gemini API key."
+    );
+  }
+
+  return new GoogleGenAI({
+    apiKey,
+  });
+}
 
 async function generateCommitMessage(diff, branch) {
   if (!diff || !diff.trim()) {
@@ -34,10 +43,42 @@ Git Diff:
 ${diff}
 `;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
-    contents: prompt,
-  });
+  const ai = await createAiClient();
+  const model = DEFAULT_MODEL;
+
+  let response;
+
+  try {
+    response = await ai.models.generateContent({
+      model,
+      contents: prompt,
+    });
+  } catch (error) {
+    const message = String(error?.message || error).toLowerCase();
+
+    if (
+      message.includes("quota") ||
+      message.includes("resource_exhausted") ||
+      message.includes("429")
+    ) {
+      throw new Error(
+        "Gemini quota reached or the API key is no longer usable. Run `gitmind config reset`, then run `gitmind config` to save a new key."
+      );
+    }
+
+    if (
+      message.includes("api key") ||
+      message.includes("unauthor") ||
+      message.includes("invalid") ||
+      message.includes("forbidden")
+    ) {
+      throw new Error(
+        "The saved Gemini API key is invalid. Run `gitmind config reset`, then run `gitmind config` to save a new key."
+      );
+    }
+
+    throw error;
+  }
 
   const commitMessage = (response.text || "").trim();
 

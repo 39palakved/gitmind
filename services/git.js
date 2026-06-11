@@ -1,4 +1,4 @@
-const { execSync } = require("child_process");
+const { execFileSync, execSync } = require("child_process");
 
 function getStagedDiff() {
   const diff = execSync("git diff --cached", {
@@ -40,8 +40,104 @@ function getRepositoryStatus() {
   };
 }
 
+function getRemoteNames() {
+  try {
+    const remoteOutput = execSync("git remote", {
+      encoding: "utf8",
+    }).trim();
+
+    if (!remoteOutput) {
+      return [];
+    }
+
+    return remoteOutput.split(/\r?\n/).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+function getDefaultRemoteName() {
+  const remotes = getRemoteNames();
+
+  if (remotes.includes("origin")) {
+    return "origin";
+  }
+
+  return remotes[0] || null;
+}
+
+function getCurrentUpstreamBranch() {
+  try {
+    const upstream = execSync(
+      "git rev-parse --abbrev-ref --symbolic-full-name @{u}",
+      {
+        encoding: "utf8",
+      }
+    ).trim();
+
+    return upstream || null;
+  } catch {
+    return null;
+  }
+}
+
+function getPushRemoteName() {
+  const upstreamBranch = getCurrentUpstreamBranch();
+
+  if (upstreamBranch) {
+    return upstreamBranch.split("/")[0] || null;
+  }
+
+  return getDefaultRemoteName();
+}
+
+function pushCurrentBranch() {
+  const branch = getCurrentBranch();
+
+  if (!branch || branch === "unknown") {
+    throw new Error(
+      "GitMind could not determine the current branch, so it cannot push this commit."
+    );
+  }
+
+  const upstreamBranch = getCurrentUpstreamBranch();
+
+  if (upstreamBranch) {
+    execFileSync("git", ["push"], {
+      stdio: "inherit",
+    });
+
+    return {
+      branch,
+      remote: upstreamBranch.split("/")[0] || null,
+    };
+  }
+
+  const remote = getDefaultRemoteName();
+
+  if (!remote) {
+    throw new Error(
+      "No git remote is configured. Add a remote such as origin before pushing to GitHub."
+    );
+  }
+
+  execFileSync("git", ["push", "-u", remote, branch], {
+    stdio: "inherit",
+  });
+
+  return {
+    branch,
+    remote,
+  };
+}
+
 module.exports = {
   getCurrentBranch,
+  getCurrentUpstreamBranch,
+  getDefaultRemoteName,
   getRepositoryStatus,
   getStagedDiff,
+  getPushRemoteName,
+  getRemoteNames,
+  pushCurrentBranch,
 };
