@@ -18,7 +18,7 @@ async function handleCommit() {
       console.log("\nNo changes detected in this repository.");
     } else if (status.hasUnstagedChanges) {
       console.log(
-        "\nYou have unstaged changes. Run `git add` first, then `gitmind commit`."
+        "\nYou have unstaged changes. Run `git add` first , then `gitmind commit`."
       );
     } else {
       console.log(
