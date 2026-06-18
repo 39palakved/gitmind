@@ -12,24 +12,26 @@ function printGeneralHelp() {
   console.log(
     "  gitmind commit          Generate an AI commit message, commit locally, and optionally push to GitHub"
   );
+  console.log(
+    "  gitmind timesheet       Fill an Excel timesheet from recent git commits"
+  );
   console.log("");
   console.log("Flow:");
   console.log("  1. Run gitmind config once");
-  console.log("  2. Stage your files with git add");
-  console.log("  3. Run gitmind commit");
-  console.log("  4. Review the suggested message and accept or cancel");
-  console.log("  5. Optionally push the commit to your remote");
+  console.log("  2. Run gitmind commit after staging your code");
+  console.log("  3. Run gitmind timesheet with your Excel template");
+  console.log("  4. Pick the sheet/tab to fill and confirm the preview");
   console.log("");
   console.log("Examples:");
   console.log("  gitmind config");
   console.log("  gitmind config status");
   console.log("  gitmind commit");
-  console.log("");
-  console.log("Roadmap:");
-  console.log("  Timesheet filling is coming next.");
+  console.log("  gitmind timesheet template.xlsx");
   console.log("");
   console.log("Tip:");
-  console.log("  Run `gitmind help config` or `gitmind help commit` for details.");
+  console.log(
+    "  Run `gitmind help config`, `gitmind help commit`, or `gitmind help timesheet` for details."
+  );
 }
 
 function printConfigHelp() {
@@ -67,6 +69,29 @@ function printCommitHelp() {
   console.log("  gitmind commit");
 }
 
+function printTimesheetHelp() {
+  console.log("\nGitMind timesheet");
+  console.log(
+    "Fill an Excel timesheet tab from recent git commits, then save a filled copy."
+  );
+  console.log("");
+  console.log("What happens:");
+  console.log("  - GitMind asks for the workbook path if you do not pass one");
+  console.log("  - If the workbook has multiple sheets, you choose the sheet/tab");
+  console.log("  - GitMind reads recent commits from the current git repository");
+  console.log(
+    "  - Gemini turns each day of work into a short professional description"
+  );
+  console.log("  - If Gemini is not configured, GitMind falls back to local summaries");
+  console.log("  - You enter the hours for each day before the workbook is saved");
+  console.log("  - GitMind writes a new file named like filled_template.xlsx");
+  console.log("");
+  console.log("Examples:");
+  console.log("  gitmind timesheet template.xlsx");
+  console.log("  gitmind timesheet template.xlsx --today");
+  console.log("  gitmind timesheet template.xlsx --week");
+}
+
 function handleHelp(topic = "") {
   const normalizedTopic = (topic || "").trim().toLowerCase();
 
@@ -77,6 +102,11 @@ function handleHelp(topic = "") {
 
   if (normalizedTopic === "commit") {
     printCommitHelp();
+    return;
+  }
+
+  if (normalizedTopic === "timesheet") {
+    printTimesheetHelp();
     return;
   }
 

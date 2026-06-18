@@ -1,3 +1,4 @@
+const path = require("path");
 const { execFileSync, execSync } = require("child_process");
 
 function getStagedDiff() {
@@ -38,6 +39,28 @@ function getRepositoryStatus() {
       return entry.code === "??" || entry.code[1] !== " ";
     }),
   };
+}
+
+function getRepositoryRoot() {
+  try {
+    const root = execSync("git rev-parse --show-toplevel", {
+      encoding: "utf8",
+    }).trim();
+
+    return root || null;
+  } catch {
+    return null;
+  }
+}
+
+function getRepositoryName() {
+  const root = getRepositoryRoot();
+
+  if (!root) {
+    return null;
+  }
+
+  return path.basename(root);
 }
 
 function getRemoteNames() {
@@ -131,10 +154,76 @@ function pushCurrentBranch() {
   };
 }
 
+function toLocalDayKey(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function toLocalGitDateTime(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day} 00:00:00`;
+}
+
+function getRecentCommitActivity({ sinceDays = 7 } = {}) {
+  const days = Number.isFinite(sinceDays) ? Math.max(0, sinceDays) : 7;
+  const sinceDate = new Date();
+  sinceDate.setDate(sinceDate.getDate() - days);
+  sinceDate.setHours(0, 0, 0, 0);
+
+  const since = toLocalGitDateTime(sinceDate);
+
+  const output = execFileSync(
+    "git",
+    [
+      "log",
+      "--no-merges",
+      `--since=${since}`,
+      "--date=iso-strict",
+      "--pretty=format:%H%x1f%ad%x1f%s%x1f%b%x1e",
+    ],
+    {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024,
+    }
+  );
+
+  return output
+    .split("\x1e")
+    .map((record) => record.trim())
+    .filter(Boolean)
+    .map((record) => {
+      const [hash = "", dateText = "", subject = "", body = ""] = record.split(
+        "\x1f"
+      );
+      const date = new Date(dateText);
+      const cleanSubject = subject.trim();
+      const cleanBody = body.trim();
+
+      return {
+        hash,
+        date: dateText,
+        dayKey: Number.isNaN(date.getTime()) ? null : toLocalDayKey(date),
+        subject: cleanSubject,
+        body: cleanBody,
+        message: cleanBody ? `${cleanSubject} ${cleanBody}`.trim() : cleanSubject,
+      };
+    })
+    .filter((entry) => entry.dayKey);
+}
+
 module.exports = {
   getCurrentBranch,
   getCurrentUpstreamBranch,
   getDefaultRemoteName,
+  getRecentCommitActivity,
+  getRepositoryName,
+  getRepositoryRoot,
   getRepositoryStatus,
   getStagedDiff,
   getPushRemoteName,

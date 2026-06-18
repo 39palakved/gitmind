@@ -16,11 +16,18 @@ async function main() {
     await handleConfig();
     return;
   }
-//run on commit 
+
   if (command === "commit") {
     const handleCommit = require("./commands/commit");
 
     await handleCommit();
+    return;
+  }
+
+  if (command === "timesheet") {
+    const handleTimesheet = require("./commands/timesheet");
+
+    await handleTimesheet();
     return;
   }
 
