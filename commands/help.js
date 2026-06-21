@@ -26,7 +26,7 @@ function printGeneralHelp() {
   console.log("  gitmind config");
   console.log("  gitmind config status");
   console.log("  gitmind commit");
-  console.log("  gitmind timesheet template.xlsx");
+  console.log("  gitmind timesheet timesheet.xlsx");
   console.log("");
   console.log("Tip:");
   console.log(
@@ -72,24 +72,28 @@ function printCommitHelp() {
 function printTimesheetHelp() {
   console.log("\nGitMind timesheet");
   console.log(
-    "Fill an Excel timesheet tab from recent git commits, then save a filled copy."
+    "Fill an Excel timesheet from recent git commits and save it back to the same file."
   );
   console.log("");
   console.log("What happens:");
   console.log("  - GitMind asks for the workbook path if you do not pass one");
-  console.log("  - If the workbook has multiple sheets, you choose the sheet/tab");
+  console.log("  - If the workbook has multiple sheets, you pick which tab to fill");
   console.log("  - GitMind reads recent commits from the current git repository");
   console.log(
     "  - Gemini turns each day of work into a short professional description"
   );
   console.log("  - If Gemini is not configured, GitMind falls back to local summaries");
-  console.log("  - You enter the hours for each day before the workbook is saved");
-  console.log("  - GitMind writes a new file named like filled_template.xlsx");
+  console.log("  - Hours are auto-suggested from commit timestamps (you can override)");
+  console.log("  - Dates already in the sheet are skipped automatically (no duplicates)");
+  console.log("  - GitMind writes the new rows back into the SAME workbook file");
+  console.log("");
+  console.log("Usage:");
+  console.log("  gitmind timesheet <path/to/timesheet.xlsx> [--today | --week]");
   console.log("");
   console.log("Examples:");
-  console.log("  gitmind timesheet template.xlsx");
-  console.log("  gitmind timesheet template.xlsx --today");
-  console.log("  gitmind timesheet template.xlsx --week");
+  console.log('  gitmind timesheet timesheet.xlsx');
+  console.log('  gitmind timesheet timesheet.xlsx --today');
+  console.log('  gitmind timesheet "C:/Work/MyTimesheet.xlsx" --week');
 }
 
 function handleHelp(topic = "") {

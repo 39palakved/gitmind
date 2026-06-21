@@ -20,48 +20,99 @@ const {
   writeTimesheetEntries,
   findHeaderRow,
   getExistingDates,
+  calculateHoursFromCommits,
 } = require("../services/timesheet");
+
+// ─── ANSI helpers ────────────────────────────────────────────────────────────
+
+const C = {
+  reset:   "\x1b[0m",
+  bold:    "\x1b[1m",
+  dim:     "\x1b[2m",
+  cyan:    "\x1b[36m",
+  green:   "\x1b[32m",
+  yellow:  "\x1b[33m",
+  blue:    "\x1b[34m",
+  magenta: "\x1b[35m",
+  red:     "\x1b[31m",
+  white:   "\x1b[37m",
+  gray:    "\x1b[90m",
+};
+
+function color(str, ...codes) {
+  return codes.join("") + String(str) + C.reset;
+}
+
+function printBanner() {
+  console.log("");
+  console.log(color("  ╔════════════════════════════════════╗", C.cyan, C.bold));
+  console.log(color("  ║    ", C.cyan, C.bold) + color("GitMind Timesheet", C.white, C.bold) + color("             ║", C.cyan, C.bold));
+  console.log(color("  ╚════════════════════════════════════╝", C.cyan, C.bold));
+  console.log("");
+}
+
+function printStep(icon, label, value) {
+  const prefix = color(`  ${icon} `, C.cyan);
+  const lbl    = color(label.padEnd(14), C.gray);
+  const val    = color(value, C.white);
+  console.log(prefix + lbl + val);
+}
+
+function printDivider() {
+  console.log(color("  " + "─".repeat(54), C.gray));
+}
+
+function printSuccess(msg) {
+  console.log("\n" + color("  ✔ ", C.green, C.bold) + color(msg, C.green));
+}
+
+function printWarning(msg) {
+  console.log("\n" + color("  ⚠ ", C.yellow, C.bold) + color(msg, C.yellow));
+}
+
+function printError(msg) {
+  console.log("\n" + color("  ✖ ", C.red, C.bold) + color(msg, C.red));
+}
+
+function printInfo(msg) {
+  process.stdout.write(color("  → ", C.blue) + color(msg, C.dim) + " ");
+}
+
+function printDone(status = "done") {
+  console.log(color(status, C.green));
+}
+
+// ─── Arg parsing ─────────────────────────────────────────────────────────────
 
 function parseTimesheetArgs() {
   const tokens = process.argv.slice(3).map((token) => String(token || "").trim());
   const result = {
-    inputPath: null,
-    sheetName: null,
-    period: "week",
+    inputPath:     null,
+    sheetName:     null,
+    period:        "week",
     helpRequested: false,
   };
 
   for (const token of tokens) {
     const normalized = token.toLowerCase();
-
-    if (!normalized) {
-      continue;
-    }
+    if (!normalized) continue;
 
     if (normalized === "help" || normalized === "-h" || normalized === "--help") {
       result.helpRequested = true;
       continue;
     }
-
-    if (
-      normalized === "today" ||
-      normalized === "--today" ||
-      normalized === "-t"
-    ) {
+    if (normalized === "today" || normalized === "--today" || normalized === "-t") {
       result.period = "today";
       continue;
     }
-
     if (normalized === "week" || normalized === "--week" || normalized === "-w") {
       result.period = "week";
       continue;
     }
-
     if (!token.startsWith("-") && !result.inputPath) {
       result.inputPath = token;
       continue;
     }
-
     if (!token.startsWith("-") && !result.sheetName) {
       result.sheetName = token;
     }
@@ -69,6 +120,8 @@ function parseTimesheetArgs() {
 
   return result;
 }
+
+// ─── Path helpers ─────────────────────────────────────────────────────────────
 
 function normalizePathInput(answer) {
   return String(answer || "")
@@ -79,23 +132,23 @@ function normalizePathInput(answer) {
 async function promptForWorkbookPath() {
   while (true) {
     const answer = normalizePathInput(
-      await askQuestion("Enter the path to the timesheet workbook: ")
+      await askQuestion(color("  Enter path to your .xlsx timesheet: ", C.cyan))
     );
 
     if (!answer) {
-      console.log("No workbook path entered. Timesheet generation cancelled.");
+      printWarning("No path entered. Timesheet cancelled.");
       return null;
     }
 
     const absolutePath = path.resolve(answer);
 
     if (!fs.existsSync(absolutePath)) {
-      console.log(`File not found: ${absolutePath}`);
+      printError(`File not found: ${absolutePath}`);
       continue;
     }
 
     if (path.extname(absolutePath).toLowerCase() !== ".xlsx") {
-      console.log("GitMind timesheet currently supports .xlsx workbooks only.");
+      printError("Only .xlsx workbooks are supported.");
       continue;
     }
 
@@ -108,12 +161,12 @@ async function resolveWorkbookPath(inputPath) {
     const absolutePath = path.resolve(normalizePathInput(inputPath));
 
     if (!fs.existsSync(absolutePath)) {
-      console.log(`File not found: ${absolutePath}`);
+      printError(`File not found: ${absolutePath}`);
       return promptForWorkbookPath();
     }
 
     if (path.extname(absolutePath).toLowerCase() !== ".xlsx") {
-      console.log("GitMind timesheet currently supports .xlsx workbooks only.");
+      printError("Only .xlsx workbooks are supported.");
       return promptForWorkbookPath();
     }
 
@@ -122,6 +175,8 @@ async function resolveWorkbookPath(inputPath) {
 
   return promptForWorkbookPath();
 }
+
+// ─── Sheet selection ──────────────────────────────────────────────────────────
 
 async function resolveWorksheet(workbook, sheetName) {
   const sheetNames = getWorksheetNames(workbook);
@@ -132,20 +187,17 @@ async function resolveWorksheet(workbook, sheetName) {
 
   if (sheetName) {
     const exactSheet = workbook.getWorksheet(sheetName);
-
-    if (exactSheet) {
-      return exactSheet;
-    }
-
-    console.log(`Sheet not found: ${sheetName}`);
+    if (exactSheet) return exactSheet;
+    printWarning(`Sheet "${sheetName}" not found — please choose from the list below.`);
   }
 
   if (sheetNames.length === 1) {
     return workbook.getWorksheet(sheetNames[0]);
   }
 
+  console.log("");
   const selectedIndex = await askChoice(
-    "Choose the sheet/tab you want GitMind to fill:",
+    color("  Choose the sheet/tab to fill:", C.cyan),
     sheetNames,
     0
   );
@@ -153,33 +205,39 @@ async function resolveWorksheet(workbook, sheetName) {
   return workbook.getWorksheet(sheetNames[selectedIndex]);
 }
 
-function parseHoursInput(answer, defaultHours = 8) {
-  const normalized = String(answer || "").trim();
+// ─── Hours prompt ─────────────────────────────────────────────────────────────
 
-  if (!normalized) {
-    return defaultHours;
-  }
+function parseHoursInput(answer, defaultHours) {
+  const normalized = String(answer || "").trim();
+  if (!normalized) return defaultHours;
 
   const hours = Number.parseFloat(normalized);
-
-  if (!Number.isFinite(hours) || hours <= 0) {
-    return null;
-  }
+  if (!Number.isFinite(hours) || hours <= 0) return null;
 
   return hours;
 }
 
-async function promptForHours(dayKey) {
+async function promptForHours(entry) {
+  const suggested = entry.suggestedHours;
+  const promptLabel =
+    color(`  ${entry.dayKey}`, C.white, C.bold) +
+    color(` [suggested: ${suggested.toFixed(1)}h] → hours: `, C.gray);
+
   while (true) {
-    const answer = await askQuestion(`Hours worked on ${dayKey} [8]: `);
-    const hours = parseHoursInput(answer, 8);
+    const answer = await askQuestion(promptLabel);
+    const hours = parseHoursInput(answer, suggested);
 
-    if (hours != null) {
-      return hours;
-    }
-
-    console.log("Please enter a positive number of hours.");
+    if (hours != null) return hours;
+    printError("Please enter a positive number.");
   }
+}
+
+// ─── Description helpers ──────────────────────────────────────────────────────
+
+function truncateText(text, limit = 120) {
+  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+  if (normalized.length <= limit) return normalized;
+  return `${normalized.slice(0, limit - 3)}...`;
 }
 
 function buildTimesheetEntries(groups, summaryMap) {
@@ -188,24 +246,57 @@ function buildTimesheetEntries(groups, summaryMap) {
       summaryMap.get(group.dayKey) ||
       buildFallbackTimesheetDescription(group.commits);
 
+    const suggestedHours = calculateHoursFromCommits(group.commits);
+
     return {
-      dayKey: group.dayKey,
-      dateObject: group.date,
-      description: summary,
-      hours: null,
+      dayKey:         group.dayKey,
+      dateObject:     group.date,
+      description:    truncateText(summary, 120),
+      hours:          null,
+      suggestedHours,
     };
   });
 }
 
-function truncateText(text, limit = 110) {
-  const normalized = String(text || "").replace(/\s+/g, " ").trim();
+// ─── Preview table ────────────────────────────────────────────────────────────
 
-  if (normalized.length <= limit) {
-    return normalized;
+function printPreviewTable(entries, repoName, branch, workbookPath, sheetName, period, aiStatus) {
+  console.log("");
+  printDivider();
+  console.log(color("  TIMESHEET PREVIEW", C.bold, C.white));
+  printDivider();
+  printStep("📁", "Workbook", path.basename(workbookPath));
+  printStep("📋", "Sheet",    sheetName);
+  printStep("🌿", "Repo",     repoName);
+  printStep("🔀", "Branch",   branch);
+  printStep("📅", "Period",   period);
+  printStep(aiStatus.ok ? "✨" : "⚠", "AI",       aiStatus.message);
+  printDivider();
+
+  // Column widths
+  const dateW  = 12;
+  const hoursW = 7;
+  const descW  = 36;
+
+  const header =
+    color("  " + "DATE".padEnd(dateW), C.bold, C.cyan) +
+    color("HOURS".padEnd(hoursW), C.bold, C.cyan) +
+    color("DESCRIPTION", C.bold, C.cyan);
+  console.log(header);
+  console.log(color("  " + "─".repeat(dateW + hoursW + descW), C.gray));
+
+  for (const [i, entry] of entries.entries()) {
+    const idx  = color(`${i + 1}.`.padEnd(3), C.gray);
+    const date = color(entry.dayKey.padEnd(dateW), C.white);
+    const hrs  = color(`${entry.hours.toFixed(1)}h`.padEnd(hoursW), C.green);
+    const desc = color(truncateText(entry.description, descW), C.dim);
+    console.log(`  ${idx}${date}${hrs}${desc}`);
   }
 
-  return `${normalized.slice(0, limit - 3)}...`;
+  printDivider();
 }
+
+// ─── Main handler ─────────────────────────────────────────────────────────────
 
 async function handleTimesheet() {
   const args = parseTimesheetArgs();
@@ -215,34 +306,37 @@ async function handleTimesheet() {
     return;
   }
 
+  printBanner();
+
+  // 1. Resolve workbook path
   const inputPath = await resolveWorkbookPath(args.inputPath);
+  if (!inputPath) return;
 
-  if (!inputPath) {
-    return;
-  }
-
+  // 2. Load workbook
+  printInfo("Loading workbook...");
   let workbook;
-
   try {
     workbook = await loadWorkbook(inputPath);
+    printDone();
   } catch (error) {
-    throw new Error(
-      `GitMind could not read the workbook: ${error.message || error}`
-    );
+    throw new Error(`GitMind could not read the workbook: ${error.message || error}`);
   }
 
+  // 3. Select sheet
   const worksheet = await resolveWorksheet(workbook, args.sheetName);
-
   if (!worksheet) {
-    console.log("No worksheet was selected. Timesheet generation cancelled.");
+    printWarning("No worksheet selected. Cancelled.");
     return;
   }
 
+  // 4. Read git history
+  printInfo("Reading git history...");
   const sinceDays = args.period === "today" ? 0 : 7;
   let activity;
 
   try {
     activity = getRecentCommitActivity({ sinceDays });
+    printDone();
   } catch {
     throw new Error(
       "GitMind could not read git history. Make sure you run `gitmind timesheet` inside a git repository."
@@ -250,104 +344,109 @@ async function handleTimesheet() {
   }
 
   if (!activity.length) {
-    console.log("\nNo commits found in the selected period.");
-    console.log("Nothing was written to the workbook.");
+    printWarning("No commits found in the selected period. Nothing to write.");
     return;
   }
 
+  // 5. Filter out already-logged dates
   const groupedActivityAll = groupCommitActivityByDay(activity);
-  
   const layout = findHeaderRow(worksheet);
   const existingDates = getExistingDates(worksheet, layout);
-  
+
   const groupedActivity = groupedActivityAll.filter(
     (group) => !existingDates.has(group.dayKey)
   );
 
   if (groupedActivity.length === 0) {
-    console.log("\nAll commits in the selected period are already logged in the timesheet.");
-    console.log("Nothing was written to the workbook.");
+    printSuccess("All commits in this period are already logged. Nothing to write.");
     return;
   }
 
+  // 6. Get repo context
   const repositoryName = getRepositoryName() || "unknown";
   let currentBranch = "unknown";
-
   try {
     currentBranch = getCurrentBranch() || "unknown";
   } catch {
     currentBranch = "unknown";
   }
 
+  // 7. Generate AI summaries
+  printInfo("Generating AI summaries with Gemini...");
   let summaryMap = new Map();
-  let aiStatusMessage = "AI summaries were not generated.";
+  let aiStatus = { ok: false, message: "Not used (no API key or error)" };
 
   try {
     const aiSummaries = await generateTimesheetSummaries(groupedActivity, {
       repoName: repositoryName,
-      branch: currentBranch,
+      branch:   currentBranch,
     });
-
     summaryMap = new Map(
       aiSummaries.map((entry) => [String(entry.date || "").trim(), entry.description])
     );
-    aiStatusMessage = "Gemini generated the daily descriptions.";
+    aiStatus = { ok: true, message: "Gemini generated descriptions" };
+    printDone();
   } catch (error) {
-    aiStatusMessage = `Gemini was not used: ${error.message || error}`;
+    printDone(color("skipped", C.yellow));
+    aiStatus = { ok: false, message: `Fallback used (${error.message || error})` };
   }
 
-  const entries = buildTimesheetEntries(groupedActivity, summaryMap).map(
-    (entry) => ({
-      ...entry,
-      description: truncateText(entry.description, 140),
-    })
-  );
+  // 8. Build entries with auto-suggested hours
+  const entries = buildTimesheetEntries(groupedActivity, summaryMap);
+
+  // 9. Prompt for hours (show suggestion per day)
+  console.log("\n" + color("  Enter hours worked each day", C.bold, C.white));
+  console.log(color("  (press Enter to accept the suggested value)\n", C.gray));
 
   for (const entry of entries) {
-    entry.hours = await promptForHours(entry.dayKey);
+    entry.hours = await promptForHours(entry);
   }
 
-  console.log("\nGitMind timesheet preview");
-  console.log(`Repository: ${repositoryName}`);
-  console.log(`Branch: ${currentBranch}`);
-  console.log(`Workbook: ${path.basename(inputPath)}`);
-  console.log(`Sheet: ${worksheet.name}`);
-  console.log(`Period: ${args.period}`);
-  console.log(aiStatusMessage);
-  console.log("");
+  // 10. Show preview table
+  printPreviewTable(
+    entries,
+    repositoryName,
+    currentBranch,
+    inputPath,
+    worksheet.name,
+    args.period,
+    aiStatus
+  );
 
-  entries.forEach((entry, index) => {
-    console.log(
-      `${index + 1}. ${entry.dayKey} | ${entry.hours.toFixed(2)}h | ${entry.description}`
-    );
-  });
-
-  const shouldWrite = await askYesNo("\nWrite these rows into the workbook? (Y/N): ");
+  // 11. Confirm write
+  const shouldWrite = await askYesNo(
+    color("\n  Write these rows into the workbook? (Y/N): ", C.cyan)
+  );
 
   if (!shouldWrite) {
-    console.log("\nTimesheet generation cancelled.");
+    printWarning("Cancelled. No changes were written.");
     return;
   }
 
+  // 12. Write & save to the SAME file path
   const result = writeTimesheetEntries(worksheet, entries);
   const outputPath = buildOutputPath(inputPath);
 
+  printInfo("Saving workbook...");
   try {
     await saveWorkbook(workbook, outputPath);
+    printDone();
   } catch (error) {
-    throw new Error(
-      `GitMind could not save the workbook: ${error.message || error}`
-    );
+    throw new Error(`GitMind could not save the workbook: ${error.message || error}`);
   }
 
-  console.log("\nTimesheet filled successfully.");
-  console.log(`Saved to: ${outputPath}`);
+  printSuccess(`Timesheet updated → ${outputPath}`);
 
   if (result.mode === "fallback") {
     console.log(
-      "GitMind did not find a standard timesheet header, so it added a simple Date / Description / Hours block at the bottom of the sheet."
+      color(
+        "  (No standard header found — a Date / Description / Hours block was added at the bottom.)",
+        C.gray
+      )
     );
   }
+
+  console.log("");
 }
 
 module.exports = handleTimesheet;

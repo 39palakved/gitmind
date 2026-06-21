@@ -121,6 +121,37 @@ function groupCommitActivityByDay(activity) {
     .filter((group) => group.date);
 }
 
+function calculateHoursFromCommits(commits) {
+  if (!commits || commits.length === 0) return 0;
+  if (commits.length === 1) return 2.0; // Assume 2 hours if there's only 1 commit that day
+
+  // Sort commits from morning to evening
+  const sorted = [...commits].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  let totalMs = 0;
+  // Assume 1 hour of work before the very first commit of the day
+  totalMs += 1 * 60 * 60 * 1000;
+
+  for (let i = 1; i < sorted.length; i++) {
+    const prevTime = new Date(sorted[i - 1].date).getTime();
+    const currTime = new Date(sorted[i].date).getTime();
+    let diffMs = currTime - prevTime;
+
+    // If gap between commits is more than 4 hours, assume they took a long break
+    // and cap that specific work block at 2 hours.
+    if (diffMs > 4 * 60 * 60 * 1000) {
+      diffMs = 2 * 60 * 60 * 1000;
+    }
+
+    totalMs += diffMs;
+  }
+
+  const hours = totalMs / (1000 * 60 * 60);
+  return Math.round(hours * 10) / 10; // Round to 1 decimal place (e.g., 4.5)
+}
+
 async function loadWorkbook(filePath) {
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.readFile(filePath);
@@ -409,4 +440,5 @@ module.exports = {
   writeTimesheetEntries,
   findHeaderRow,
   getExistingDates,
+  calculateHoursFromCommits,
 };

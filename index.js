@@ -17,6 +17,20 @@ async function main() {
     return;
   }
 
+  if (command === "init") {
+    const handleInit = require("./commands/init");
+
+    await handleInit();
+    return;
+  }
+
+  if (command === "hook") {
+    const handleHook = require("./commands/hook");
+
+    await handleHook();
+    return;
+  }
+
   if (command === "commit") {
     const handleCommit = require("./commands/commit");
 
