@@ -89,7 +89,7 @@ function parseTimesheetArgs() {
   const result = {
     inputPath:     null,
     sheetName:     null,
-    period:        "week",
+    days:          7,
     helpRequested: false,
   };
 
@@ -101,14 +101,27 @@ function parseTimesheetArgs() {
       result.helpRequested = true;
       continue;
     }
+
+    // --today shortcut → days=0 means since today midnight only
     if (normalized === "today" || normalized === "--today" || normalized === "-t") {
-      result.period = "today";
+      result.days = 0;
       continue;
     }
+
+    // --week shortcut → same as --days=7
     if (normalized === "week" || normalized === "--week" || normalized === "-w") {
-      result.period = "week";
+      result.days = 7;
       continue;
     }
+
+    // --days=N
+    const daysMatch = normalized.match(/^--days=(\d+)$/);
+    if (daysMatch) {
+      const parsed = parseInt(daysMatch[1], 10);
+      if (parsed > 0) result.days = parsed;
+      continue;
+    }
+
     if (!token.startsWith("-") && !result.inputPath) {
       result.inputPath = token;
       continue;
@@ -331,7 +344,7 @@ async function handleTimesheet() {
 
   // 4. Read git history
   printInfo("Reading git history...");
-  const sinceDays = args.period === "today" ? 0 : 7;
+  const sinceDays = args.days;
   let activity;
 
   try {
@@ -409,7 +422,7 @@ async function handleTimesheet() {
     currentBranch,
     inputPath,
     worksheet.name,
-    args.period,
+    args.days === 0 ? "today only" : (args.days === 1 ? "last 1 day" : `last ${args.days ?? 7} days`),
     aiStatus
   );
 
@@ -428,11 +441,27 @@ async function handleTimesheet() {
   const outputPath = buildOutputPath(inputPath);
 
   printInfo("Saving workbook...");
-  try {
-    await saveWorkbook(workbook, outputPath);
-    printDone();
-  } catch (error) {
-    throw new Error(`GitMind could not save the workbook: ${error.message || error}`);
+  let saved = false;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await saveWorkbook(workbook, outputPath);
+      printDone();
+      saved = true;
+      break;
+    } catch (error) {
+      const isBusy = error.code === "EBUSY" || (error.message || "").includes("EBUSY");
+      if (isBusy && attempt < 3) {
+        console.log("");
+        printWarning(`The file is open in another program (e.g. Excel). Please close it, then press Enter to retry... (attempt ${attempt}/3)`);
+        await askQuestion("");
+      } else {
+        throw new Error(
+          isBusy
+            ? `Could not save — the file is still open in another program. Please close it and run gitmind timesheet again.`
+            : `GitMind could not save the workbook: ${error.message || error}`
+        );
+      }
+    }
   }
 
   printSuccess(`Timesheet updated → ${outputPath}`);

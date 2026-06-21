@@ -88,12 +88,19 @@ function printTimesheetHelp() {
   console.log("  - GitMind writes the new rows back into the SAME workbook file");
   console.log("");
   console.log("Usage:");
-  console.log("  gitmind timesheet <path/to/timesheet.xlsx> [--today | --week]");
+  console.log("  gitmind timesheet <path/to/timesheet.xlsx> [--today | --week | --days=N]");
+  console.log("");
+  console.log("Options:");
+  console.log("  --today     Only look at today's commits (shortcut for --days=1)");
+  console.log("  --week      Look back 7 days (default, same as running with no flag)");
+  console.log("  --days=N    Look back any number of days you choose (e.g. --days=2, --days=30)");
   console.log("");
   console.log("Examples:");
-  console.log('  gitmind timesheet timesheet.xlsx');
-  console.log('  gitmind timesheet timesheet.xlsx --today');
-  console.log('  gitmind timesheet "C:/Work/MyTimesheet.xlsx" --week');
+  console.log('  gitmind timesheet timesheet.xlsx              # last 7 days (default)');
+  console.log('  gitmind timesheet timesheet.xlsx --today      # only today');
+  console.log('  gitmind timesheet timesheet.xlsx --week       # last 7 days');
+  console.log('  gitmind timesheet timesheet.xlsx --days=2     # last 2 days');
+  console.log('  gitmind timesheet timesheet.xlsx --days=30    # last 30 days');
 }
 
 function handleHelp(topic = "") {
