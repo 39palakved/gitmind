@@ -90,6 +90,7 @@ function parseTimesheetArgs() {
     inputPath:     null,
     sheetName:     null,
     days:          7,
+    branch:        null,
     helpRequested: false,
   };
 
@@ -119,6 +120,13 @@ function parseTimesheetArgs() {
     if (daysMatch) {
       const parsed = parseInt(daysMatch[1], 10);
       if (parsed > 0) result.days = parsed;
+      continue;
+    }
+
+    // --branch=name
+    const branchMatch = token.match(/^--branch=(.+)$/);
+    if (branchMatch) {
+      result.branch = branchMatch[1].trim();
       continue;
     }
 
@@ -348,7 +356,7 @@ async function handleTimesheet() {
   let activity;
 
   try {
-    activity = getRecentCommitActivity({ sinceDays });
+    activity = getRecentCommitActivity({ sinceDays, branch: args.branch || null });
     printDone();
   } catch {
     throw new Error(
@@ -419,7 +427,7 @@ async function handleTimesheet() {
   printPreviewTable(
     entries,
     repositoryName,
-    currentBranch,
+    args.branch || currentBranch,
     inputPath,
     worksheet.name,
     args.days === 0 ? "today only" : (args.days === 1 ? "last 1 day" : `last ${args.days ?? 7} days`),

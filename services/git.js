@@ -170,13 +170,16 @@ function toLocalGitDateTime(date) {
   return `${year}-${month}-${day} 00:00:00`;
 }
 
-function getRecentCommitActivity({ sinceDays = 7 } = {}) {
+function getRecentCommitActivity({ sinceDays = 7, branch = null } = {}) {
   const days = Number.isFinite(sinceDays) ? Math.max(0, sinceDays) : 7;
   const sinceDate = new Date();
   sinceDate.setDate(sinceDate.getDate() - days);
   sinceDate.setHours(0, 0, 0, 0);
 
   const since = toLocalGitDateTime(sinceDate);
+
+  // If a specific branch is requested, use it; otherwise read from current branch
+  const branchArgs = branch ? [branch] : [];
 
   const output = execFileSync(
     "git",
@@ -186,6 +189,7 @@ function getRecentCommitActivity({ sinceDays = 7 } = {}) {
       `--since=${since}`,
       "--date=iso-strict",
       "--pretty=format:%H%x1f%ad%x1f%s%x1f%b%x1e",
+      ...branchArgs,
     ],
     {
       encoding: "utf8",

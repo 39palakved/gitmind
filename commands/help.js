@@ -88,19 +88,21 @@ function printTimesheetHelp() {
   console.log("  - GitMind writes the new rows back into the SAME workbook file");
   console.log("");
   console.log("Usage:");
-  console.log("  gitmind timesheet <path/to/timesheet.xlsx> [--today | --week | --days=N]");
+  console.log("  gitmind timesheet <path/to/timesheet.xlsx> [options]");
   console.log("");
   console.log("Options:");
-  console.log("  --today     Only look at today's commits (shortcut for --days=1)");
-  console.log("  --week      Look back 7 days (default, same as running with no flag)");
-  console.log("  --days=N    Look back any number of days you choose (e.g. --days=2, --days=30)");
+  console.log("  --today          Only look at today's commits");
+  console.log("  --week           Look back 7 days (this is the default)");
+  console.log("  --days=N         Look back N days (e.g. --days=2, --days=30)");
+  console.log("  --branch=NAME    Only read commits from a specific branch");
+  console.log("                   (default: your currently checked-out branch)");
   console.log("");
   console.log("Examples:");
-  console.log('  gitmind timesheet timesheet.xlsx              # last 7 days (default)');
-  console.log('  gitmind timesheet timesheet.xlsx --today      # only today');
-  console.log('  gitmind timesheet timesheet.xlsx --week       # last 7 days');
-  console.log('  gitmind timesheet timesheet.xlsx --days=2     # last 2 days');
-  console.log('  gitmind timesheet timesheet.xlsx --days=30    # last 30 days');
+  console.log('  gitmind timesheet timesheet.xlsx                       # last 7 days, current branch');
+  console.log('  gitmind timesheet timesheet.xlsx --today               # only today');
+  console.log('  gitmind timesheet timesheet.xlsx --days=2              # last 2 days');
+  console.log('  gitmind timesheet timesheet.xlsx --branch=feature/auth # specific branch');
+  console.log('  gitmind timesheet timesheet.xlsx --days=5 --branch=main');
 }
 
 function handleHelp(topic = "") {
