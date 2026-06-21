@@ -1,17 +1,39 @@
 {
   "name": "gitmind-ai",
   "version": "1.0.0",
+  "description": "AI-powered CLI tool that generates commit messages and fills Excel timesheets from your git history using Gemini.",
   "main": "index.js",
   "bin": {
     "gitmind": "index.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"No tests yet\" && exit 0"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "git",
+    "commit",
+    "ai",
+    "gemini",
+    "timesheet",
+    "excel",
+    "cli",
+    "developer-tools",
+    "commit-message"
+  ],
+  "author": "39palakved",
+  "license": "MIT",
   "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/39palakved/gitmind.git"
+  },
+  "homepage": "https://github.com/39palakved/gitmind#readme",
+  "bugs": {
+    "url": "https://github.com/39palakved/gitmind/issues"
+  },
   "dependencies": {
     "@google/genai": "^2.8.0",
     "exceljs": "^4.4.0",
